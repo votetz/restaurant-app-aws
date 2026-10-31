@@ -1,0 +1,34 @@
+# IDE / editor
+.idea/
+.vscode/
+*.iml
+*.code-workspace
+
+# OS
+.DS_Store
+._*
+Thumbs.db
+
+# Node
+node_modules/
+
+# Local deployment tools
+.tools/
+syndicate_venv/
+aws-syndicate/
+backend/restaurant-backend-app/.syndicate-config-restaurant-backend-app/
+**/bin/
+**/obj/
+
+# Local env
+.env
+.env.local
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+crash.log
+crash.*.log
