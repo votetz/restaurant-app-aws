@@ -1,4 +1,3 @@
-using APIHandler.Models.Orders;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
@@ -10,9 +9,13 @@ public record Participant(
     string? Id,
     [property: JsonConverter(typeof(JsonStringEnumConverter<ParticipantType>))] ParticipantType Type,
     string Name,
-    IEnumerable<OrderItemResponse> Items,
+    IEnumerable<SessionItemResponse> Items,
     decimal Total,
     bool IsSubmitted);
+
+public record SessionItemResponse(SessionDishResponse Dish, int Quantity);
+
+public record SessionDishResponse(string Id, string Name, decimal Price);
 
 public enum ParticipantType
 {

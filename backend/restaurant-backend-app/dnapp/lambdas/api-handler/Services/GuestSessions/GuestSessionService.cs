@@ -184,28 +184,46 @@ public class GuestSessionService(
             throw new ValidationException("Guest session does not belong to this group reservation.");
         }
 
+        if (session.IsOwnerSession)
+            throw new ValidationException("Owner session cannot be removed from the group.");
+
         await guestSessionRepository.DeleteAsync(session);
 
-        var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
+        return await BuildSessionsSnapshotAsync(groupReservationId, guestSessionId);
+    }
+
+    public async Task<GetAllSessionsResponse> GetAllSessionsAsync(string userId, string groupReservationId)
+    {
+        await ValidateReservationOwnerAsync(groupReservationId, userId);
+        return await BuildSessionsSnapshotAsync(groupReservationId);
+    }
+
+    private async Task<GetAllSessionsResponse> BuildSessionsSnapshotAsync(string groupReservationId, string? excludedSessionId = null)
+    {
+        var sessions = (await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId))
+            .Where(s => !s.IsOwnerSession && s.Id != excludedSessionId)
+            .ToArray();
 
         var dishIds = sessions
-            .SelectMany(s => s.Dishes)
+            .SelectMany(s => s.Dishes ?? [])
             .Select(s => s.DishId)
             .Distinct()
             .ToArray();
 
-        var allDishes = await dishRepository.GetDishesByIdsAsync(dishIds);
+        var allDishes = dishIds.Length == 0 ? [] : await dishRepository.GetDishesByIdsAsync(dishIds);
         var dishesById = allDishes.ToDictionary(d => d.Id);
 
         var participants = new List<Participant>();
 
         foreach (var guestSession in sessions)
         {
-            var items = guestSession.Dishes.Select(d => new OrderItemResponse
-            {
-                Dish = DishMapper.ToDishResponse(dishesById[d.DishId]),
-                Quantity = d.Quantity
-            }).ToArray();
+            var items = (guestSession.Dishes ?? [])
+                .Select(d =>
+                {
+                    if (!dishesById.TryGetValue(d.DishId, out var dish))
+                        throw new ValidationException($"Dish '{d.DishId}' in guest session was not found.");
+                    return new SessionItemResponse(new SessionDishResponse(dish.Id, dish.Name, dish.Price), d.Quantity);
+                }).ToArray();
 
             decimal total = items.Sum(i => i.Quantity * i.Dish.Price);
             var participant = new Participant(guestSession.Id, ParticipantType.Guest, guestSession.GuestName, items, total, guestSession.IsSubmitted);

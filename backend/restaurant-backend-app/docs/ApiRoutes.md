@@ -555,6 +555,7 @@ Response: `200 OK`
 ```
 
 ### `GET` /reservations/{reservationId}/guest-session-id
+Only the reservation owner may call this endpoint. If the owner session does not exist yet, it is created.
 Response: `200 OK`
 ```json
 {
@@ -1180,30 +1181,45 @@ Response: 200 OK
 ```
 
 ### `POST` /group-reservations/{groupReservationId}/submit
-Response: 200 OK
+Only the reservation owner may call this endpoint. Request body:
 ```json
-{
-  "message": "Group reservation pre-order submitted successfully."
-}
+{ "reservationId": "reservation-123" }
 ```
 
-### `GET` /guest/groups/{groupReservationId}/sessions
+Only submitted sessions contribute dishes. Matching `dishId` values are combined. An existing order is required. The order becomes `SubmittedByCustomer` and the group reservation becomes `Submitted`.
 Response: 200 OK
 ```json
 [
-  {
-    "id": "string",
-    "groupReservationId": "string",
-    "guestName": "string",
-    "status": "string"
-  }
+  { "dishId": "dish1", "quantity": 3 },
+  { "dishId": "dish2", "quantity": 2 }
 ]
 ```
 
-### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
+### `GET` /guest/groups/{groupReservationId}/sessions
+Only the reservation owner may call this endpoint. The owner session is excluded from the participants list.
 Response: 200 OK
 ```json
 {
-  "message": "Guest session removed from group successfully."
+  "participants": [
+    {
+      "id": "session1",
+      "type": "Guest",
+      "name": "Andrii",
+      "items": [{ "dish": { "id": "dish1", "name": "Caesar Salad", "price": 180 }, "quantity": 2 }],
+      "total": 360,
+      "isSubmitted": true
+    }
+  ],
+  "total": 360
+}
+```
+
+### `DELETE` /guest/groups/{groupReservationId}/sessions/{guestSessionId}
+Only the reservation owner may remove a guest session. The owner session cannot be removed. The response has the same shape as `GET /guest/groups/{groupReservationId}/sessions` after deletion.
+Response: 200 OK
+```json
+{
+  "participants": [],
+  "total": 0
 }
 ```
