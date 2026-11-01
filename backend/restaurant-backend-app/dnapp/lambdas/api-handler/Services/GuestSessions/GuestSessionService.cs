@@ -201,7 +201,7 @@ public class GuestSessionService(
     private async Task<GetAllSessionsResponse> BuildSessionsSnapshotAsync(string groupReservationId, string? excludedSessionId = null)
     {
         var sessions = (await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId))
-            .Where(s => !s.IsOwnerSession && s.Id != excludedSessionId)
+            .Where(s => s.Id != excludedSessionId)
             .ToArray();
 
         var dishIds = sessions
@@ -226,7 +226,8 @@ public class GuestSessionService(
                 }).ToArray();
 
             decimal total = items.Sum(i => i.Quantity * i.Dish.Price);
-            var participant = new Participant(guestSession.Id, ParticipantType.Guest, guestSession.GuestName, items, total, guestSession.IsSubmitted);
+            var type = guestSession.IsOwnerSession ? ParticipantType.Owner : ParticipantType.Guest;
+            var participant = new Participant(guestSession.Id, type, guestSession.GuestName, items, total, guestSession.IsSubmitted);
             participants.Add(participant);
         }
 
@@ -256,9 +257,8 @@ public class GuestSessionService(
     {
         var sessions = await guestSessionRepository.GetAllByGroupReservationIdAsync(groupReservationId);
 
-        // Owner is always 1 active participant. 
-        // If sessions is null/empty, it safely evaluates to 0 joined guests + 1 owner = 1.
-        return (sessions?.Count ?? 0) + 1;
+        // Owner counts once, whether or not an owner session has been created yet.
+        return (sessions?.Count(s => !s.IsOwnerSession) ?? 0) + 1;
     }
 
     private async Task ValidateGroupReservationId(string groupReservationId) => await GetGroupReservationAndValidateAsync(groupReservationId);

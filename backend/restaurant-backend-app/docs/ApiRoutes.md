@@ -1196,7 +1196,7 @@ Response: 200 OK
 ```
 
 ### `GET` /guest/groups/{groupReservationId}/sessions
-Only the reservation owner may call this endpoint. The owner session is excluded from the participants list.
+Only the reservation owner may call this endpoint. The participants list includes the owner session when it exists.
 Response: 200 OK
 ```json
 {

@@ -42,11 +42,11 @@ public class GuestSessionServiceTests
     }
 
     [Fact]
-    public async Task GetAllSessionsAsync_ReturnsOnlyGuestsWithCalculatedTotals()
+    public async Task GetAllSessionsAsync_ReturnsOwnerAndGuestsWithCalculatedTotals()
     {
         var group = new GroupReservation { GroupReservationId = "group-1", ReservationId = "reservation-1", ReservationToken = "token" };
         var reservation = new Reservation { Id = "reservation-1", TableId = "table", WaiterId = "waiter", CustomerId = "owner-1" };
-        var owner = new GuestSession { Id = "owner-session", GuestName = "Owner", GroupReservationId = "group-1", Dishes = [], IsOwnerSession = true };
+        var owner = new GuestSession { Id = "owner-session", GuestName = "Owner", GroupReservationId = "group-1", Dishes = [new OrderItem { DishId = "dish-1", Quantity = 1 }], IsOwnerSession = true, IsSubmitted = true };
         var guest = new GuestSession { Id = "guest-session", GuestName = "Andrii", GroupReservationId = "group-1", Dishes = [new OrderItem { DishId = "dish-1", Quantity = 2 }], IsSubmitted = true };
         var dish = new Dish { Id = "dish-1", Name = "Caesar Salad", Price = 180 };
         _mockGroupReservationRepository.Setup(x => x.GetGroupReservationByIdAsync("group-1")).ReturnsAsync(group);
@@ -56,18 +56,23 @@ public class GuestSessionServiceTests
 
         var result = await _guestSessionService.GetAllSessionsAsync("owner-1", "group-1");
 
-        var participant = Assert.Single(result.Participants);
+        var participants = result.Participants.ToArray();
+        Assert.Equal(2, participants.Length);
+        var ownerParticipant = Assert.Single(participants, p => p.Type == ParticipantType.Owner);
+        Assert.Equal("owner-session", ownerParticipant.Id);
+        Assert.Equal(180, ownerParticipant.Total);
+        var participant = Assert.Single(participants, p => p.Type == ParticipantType.Guest);
         Assert.Equal("guest-session", participant.Id);
         Assert.Equal(ParticipantType.Guest, participant.Type);
         Assert.Equal("Andrii", participant.Name);
         Assert.True(participant.IsSubmitted);
         Assert.Equal(360, participant.Total);
-        Assert.Equal(360, result.Total);
+        Assert.Equal(540, result.Total);
         Assert.Equal(2, Assert.Single(participant.Items).Quantity);
 
         using var json = System.Text.Json.JsonDocument.Parse(ResponseBuilder.CreateJsonResponse(200, result).Body);
-        Assert.Equal(360, json.RootElement.GetProperty("total").GetDecimal());
-        var serializedParticipant = json.RootElement.GetProperty("participants")[0];
+        Assert.Equal(540, json.RootElement.GetProperty("total").GetDecimal());
+        var serializedParticipant = json.RootElement.GetProperty("participants")[1];
         Assert.Equal("Guest", serializedParticipant.GetProperty("type").GetString());
         var serializedDish = serializedParticipant.GetProperty("items")[0].GetProperty("dish");
         Assert.Equal(3, serializedDish.EnumerateObject().Count());

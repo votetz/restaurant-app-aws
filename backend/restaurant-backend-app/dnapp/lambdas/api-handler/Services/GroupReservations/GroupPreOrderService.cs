@@ -29,15 +29,13 @@ public class GroupPreOrderService(
 
         var stableOwnerId = $"owner-{group.GroupReservationId}";
         var savedOwner = await sessionRepository.GetByGuestSessionId(stableOwnerId);
-        if (savedOwner is { IsOwnerSession: true } && savedOwner.GroupReservationId == group.GroupReservationId && savedOwner.OwnerUserId == userId)
-            return savedOwner.Id;
+        var ownerSession = savedOwner is { IsOwnerSession: true } && savedOwner.GroupReservationId == group.GroupReservationId && savedOwner.OwnerUserId == userId
+            ? savedOwner
+            : (await sessionRepository.GetAllByGroupReservationIdAsync(group.GroupReservationId))
+                .FirstOrDefault(s => s.IsOwnerSession && s.OwnerUserId == userId);
 
-        var sessions = await sessionRepository.GetAllByGroupReservationIdAsync(group.GroupReservationId);
-        var ownerSession = sessions.FirstOrDefault(s => s.IsOwnerSession && s.OwnerUserId == userId);
-        if (ownerSession is not null)
-            return ownerSession.Id;
-
-        ownerSession = new GuestSession
+        var isNew = ownerSession is null;
+        ownerSession ??= new GuestSession
         {
             Id = stableOwnerId,
             GroupReservationId = group.GroupReservationId,
@@ -46,7 +44,32 @@ public class GroupPreOrderService(
             IsOwnerSession = true,
             OwnerUserId = userId
         };
-        await sessionRepository.SaveAsync(ownerSession);
+
+        var changed = isNew;
+        if (group.Status == GroupReservationStatus.Open)
+        {
+            var order = await orderRepository.GetOrderByReservationIdAsync(reservationId);
+            var orderItems = order?.Dishes;
+            if (orderItems is { Count: > 0 })
+            {
+                var currentItems = ownerSession.Dishes ?? [];
+                if (!ownerSession.IsSubmitted || currentItems.Count != orderItems.Count ||
+                    !currentItems.Zip(orderItems).All(pair => pair.First.DishId == pair.Second.DishId && pair.First.Quantity == pair.Second.Quantity))
+                {
+                    ownerSession.Dishes = orderItems.Select(item => new OrderItem
+                    {
+                        DishId = item.DishId,
+                        Quantity = item.Quantity,
+                        State = item.State
+                    }).ToList();
+                    ownerSession.IsSubmitted = true;
+                    changed = true;
+                }
+            }
+        }
+
+        if (changed)
+            await sessionRepository.SaveAsync(ownerSession);
         return ownerSession.Id;
     }
 

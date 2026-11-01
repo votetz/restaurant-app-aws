@@ -55,6 +55,25 @@ public class GroupPreOrderServiceTests
     }
 
     [Fact]
+    public async Task GetOwnerSessionIdAsync_ReflectsExistingOwnerOrderInSession()
+    {
+        SetupOwner();
+        var owner = new GuestSession { Id = "owner-group-1", GuestName = "Owner", GroupReservationId = "group-1", OwnerUserId = "owner-1", IsOwnerSession = true, Dishes = [] };
+        sessions.Setup(x => x.GetByGuestSessionId("owner-group-1")).ReturnsAsync(owner);
+        orders.Setup(x => x.GetOrderByReservationIdAsync("reservation-1")).ReturnsAsync(new Order
+        {
+            OrderId = "order-1", CustomerId = "owner-1", ReservationId = "reservation-1",
+            ReservationAddress = "address", ReservationTime = "time",
+            Dishes = [new OrderItem { DishId = "dish-1", Quantity = 2 }],
+        });
+
+        Assert.Equal("owner-group-1", await CreateService().GetOwnerSessionIdAsync("owner-1", "reservation-1"));
+        Assert.True(owner.IsSubmitted);
+        Assert.Equal(2, Assert.Single(owner.Dishes).Quantity);
+        sessions.Verify(x => x.SaveAsync(owner), Times.Once);
+    }
+
+    [Fact]
     public async Task GetOwnerSessionIdAsync_RejectsNonOwner()
     {
         SetupOwner();
