@@ -1,5 +1,7 @@
 # Deployment Guide
 
+Test Automation homework #8: [three-level group pre-order test suite](aqa/README.md).
+
 This repo uses three deployment tracks:
 
 - Terraform for shared AWS infrastructure under `infra/terraform`

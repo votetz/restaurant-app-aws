@@ -1,0 +1,76 @@
+name: AQA Group Pre-order
+
+on:
+  workflow_dispatch:
+    inputs:
+      level:
+        description: Scenario level
+        type: choice
+        options: [all, l1, l2, l3, ui]
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: aqa/restaurant-aqa-framework
+    env:
+      UI_URL: ${{ vars.AQA_UI_URL }}
+      API_URL: ${{ vars.AQA_API_URL }}
+      TESTTABLE_ID: ${{ vars.AQA_TESTTABLE_ID }}
+      WAITER_USERNAME: ${{ secrets.AQA_WAITER_USERNAME }}
+      WAITER_PASSWORD: ${{ secrets.AQA_WAITER_PASSWORD }}
+      AQA_OWNER_USERNAME: ${{ secrets.AQA_OWNER_USERNAME }}
+      AQA_OWNER_PASSWORD: ${{ secrets.AQA_OWNER_PASSWORD }}
+      HEADLESS: "true"
+      TRACE_MODE: OnFailureOnly
+      MAX_PARALLEL_TESTS: "2"
+      SKIP_PRE_RUN_CLEANUP: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Check environment
+        shell: bash
+        run: |
+          test -n "$UI_URL" || { echo "Set repository variable AQA_UI_URL"; exit 1; }
+          test -n "$API_URL" || { echo "Set repository variable AQA_API_URL"; exit 1; }
+          test -n "$WAITER_USERNAME" && test -n "$WAITER_PASSWORD" || { echo "Set AQA_WAITER_USERNAME and AQA_WAITER_PASSWORD secrets"; exit 1; }
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - name: Install Chromium
+        shell: pwsh
+        run: ./bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      - name: Select scenarios
+        id: scope
+        shell: bash
+        env:
+          LEVEL: ${{ inputs.level || 'all' }}
+        run: |
+          case "$LEVEL" in
+            l1|l2|l3) category="group-$LEVEL" ;;
+            ui) category="group-ui" ;;
+            *) category="group-preorder" ;;
+          esac
+          echo "filter=/*/*/*/*[Category=$category]" >> "$GITHUB_OUTPUT"
+      - name: Run selected scenarios
+        id: tests
+        continue-on-error: true
+        run: dotnet bin/Release/net10.0/restaurant-aqa-framework.dll --report-trx --results-directory TestResults --treenode-filter '${{ steps.scope.outputs.filter }}'
+      - name: Upload reports and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aqa-results-${{ github.run_id }}
+          path: aqa/restaurant-aqa-framework/TestResults/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Fail job when scenarios fail
+        if: always() && steps.tests.outcome != 'success'
+        run: exit 1

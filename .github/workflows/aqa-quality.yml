@@ -1,0 +1,35 @@
+name: AQA Quality
+
+on:
+  push:
+    paths: ["aqa/**", ".github/workflows/aqa-*.yml"]
+  pull_request:
+    paths: ["aqa/**", ".github/workflows/aqa-*.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: aqa/restaurant-aqa-framework
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Reject local output and credentials
+        working-directory: .
+        shell: bash
+        run: |
+          if git ls-files aqa | grep -E '(^|/)(bin|obj|TestResults|\.env)(/|$)|\.feature\.cs$'; then
+            echo "Generated output or local credentials were committed"
+            exit 1
+          fi
+      - run: dotnet restore
+      - run: dotnet build --configuration Release --no-restore
+      - name: Discover group tests
+        run: dotnet bin/Release/net10.0/restaurant-aqa-framework.dll --list-tests --treenode-filter '/*/*/*/*[Category=group-preorder]'
