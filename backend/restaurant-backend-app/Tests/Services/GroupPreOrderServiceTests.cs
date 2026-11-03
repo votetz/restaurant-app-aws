@@ -142,7 +142,16 @@ public class GroupPreOrderServiceTests
     public async Task SubmitAsync_RejectsWrongReservationId()
     {
         SetupOwner();
+        reservations.Setup(x => x.GetReservationByIdAsync("other-reservation")).ReturnsAsync(
+            new Reservation { Id = "other-reservation", TableId = "table", WaiterId = "waiter", CustomerId = "owner-1" });
         await Assert.ThrowsAsync<ValidationException>(() => CreateService().SubmitAsync("owner-1", "group-1", "other-reservation"));
+    }
+
+    [Fact]
+    public async Task SubmitAsync_Returns404ForMissingRequestedReservation()
+    {
+        SetupOwner();
+        await Assert.ThrowsAsync<ReservationNotFoundException>(() => CreateService().SubmitAsync("owner-1", "group-1", "missing-reservation"));
     }
 
     [Fact]

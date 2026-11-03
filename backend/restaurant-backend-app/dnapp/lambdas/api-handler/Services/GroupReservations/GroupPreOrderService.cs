@@ -77,12 +77,15 @@ public class GroupPreOrderService(
     {
         var group = await groupRepository.GetGroupReservationByIdAsync(groupReservationId)
             ?? throw new GroupReservationNotFoundException();
-        if (!string.Equals(group.ReservationId, reservationId, StringComparison.Ordinal))
-            throw new ValidationException("Reservation does not belong to this group reservation.");
-
-        var reservation = await reservationRepository.GetReservationByIdAsync(reservationId)
+        var reservation = await reservationRepository.GetReservationByIdAsync(group.ReservationId)
             ?? throw new ReservationNotFoundException("Reservation not found.");
         EnsureOwner(reservation, userId);
+        if (!string.Equals(group.ReservationId, reservationId, StringComparison.Ordinal))
+        {
+            if (await reservationRepository.GetReservationByIdAsync(reservationId) is null)
+                throw new ReservationNotFoundException("Reservation not found.");
+            throw new ValidationException("Reservation does not belong to this group reservation.");
+        }
         if (group.Status != GroupReservationStatus.Open)
             throw new ValidationException("Group reservation is not open for submission.");
 
