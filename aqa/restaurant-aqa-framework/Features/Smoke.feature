@@ -33,3 +33,10 @@ Feature: Smoke
     Scenario: A guest can open the home page
       When a guest opens the home page
       Then the home page is shown
+
+    @ui @group-preorder @group-ui
+    Scenario: A guest sees catalog images and reaches booking
+      When a guest opens the home page
+      Then dish and location cards have loaded images
+      When the guest chooses to book a table
+      Then the table search form is shown

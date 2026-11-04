@@ -8,7 +8,9 @@ public sealed class OpenTheHomePage : ITask
 {
     public async Task PerformAsAsync(Actor actor)
     {
-        var answer = await actor.LookingAtThePage().GotoAsync(Settings.Current.UiBaseUrl);
+        var answer = await actor.LookingAtThePage().GotoAsync(
+            Settings.Current.UiBaseUrl,
+            new() { WaitUntil = WaitUntilState.DOMContentLoaded });
         if (answer is not null)
             actor.Remember(answer);
     }
