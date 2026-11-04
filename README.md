@@ -8,6 +8,16 @@ This repo uses three deployment tracks:
 - AWS Syndicate for the backend application under `backend/restaurant-backend-app`
 - Angular build artifacts synced to the frontend S3 bucket under `frontend/restaurant-frontend-app`
 
+## Demo restaurant data
+
+The frontend image files are bundled under `frontend/restaurant-frontend-app/src/assets/img`, but the home page and booking flow also need locations, dishes, tables, and waiters in AWS. For the `chmnu` deployment, run the idempotent seed script with PowerShell 7 after deploying the backend and frontend:
+
+```powershell
+pwsh ./infra/seed-demo-data.ps1
+```
+
+The script checks the AWS account ID before writing and creates demo records only when they are missing. It keeps generated waiter credentials in the ignored local file `infra/.demo-waiters.local.json`. To use a different account, pass its profile, region, account ID, CloudFront domain, API URL, and Cognito user pool ID as script parameters.
+
 ## Prerequisites
 
 Install the tools below on your machine:

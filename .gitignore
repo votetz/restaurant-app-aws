@@ -23,6 +23,7 @@ backend/restaurant-backend-app/.syndicate-config-restaurant-backend-app/
 # Local env
 .env
 .env.local
+infra/.demo-waiters.local.json
 
 # Terraform
 **/.terraform/
